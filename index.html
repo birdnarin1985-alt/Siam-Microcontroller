@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SIAM MICRO SIM - Holographic Silicon Matrix Z80 Simulator</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --panel: #0d1526;
+      --panel-border: #1e293b;
+      --text: #f8fafc;
+      --muted: #64748b;
+      --theme: #f59e0b;
+      --phi: 1.618;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding-bottom: 30px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 540px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--panel-border);
+      background: rgba(13, 21, 38, 0.92);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-uni {
+      font-size: 9.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--theme);
+      color: var(--theme);
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      font-family: monospace;
+    }
+    
+    .lang-toggle-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      color: var(--theme);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 900;
+      font-family: monospace;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .lang-toggle-btn:active {
+      background: var(--theme);
+      color: #000;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 540px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ปุ่มสลับ 6 โมเดล */
+    .model-switch {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+    }
+    .switch-btn {
+      height: 44px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      color: var(--muted);
+      border-radius: 6px;
+      font-size: 7.5px;
+      font-weight: bold;
+      font-family: monospace;
+      cursor: pointer;
+      transition: 0.2s;
+      padding: 2px 1px;
+      line-height: 1.2;
+      text-align: center;
+    }
+    .switch-btn.active {
+      border-color: var(--theme);
+      color: #fff;
+      background: rgba(245, 158, 11, 0.12);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+    }
+
+    /* Viewport สัดส่วนทองคำ 1:1.618 พร้อมเอฟเฟกต์โฮโลแกรม */
+    .cad-viewport {
+      width: 100%;
+      aspect-ratio: 1.618 / 1;
+      background: #020617;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0, 240, 255, 0.08);
+    }
+    svg#cadStage {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    @keyframes holoPulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+    .holo-glow {
+      animation: holoPulse 2s ease-in-out infinite;
+    }
+
+    .math-hud-overlay {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .formula-card {
+      background: rgba(3, 7, 18, 0.88);
+      border: 1px solid var(--panel-border);
+      border-left: 2px solid var(--theme);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 9px;
+      font-family: "Courier New", Courier, monospace;
+      backdrop-filter: blur(4px);
+    }
+    .formula-title {
+      font-size: 7.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      letter-spacing: 0.5px;
+    }
+    .formula-eq {
+      color: #fff;
+      font-weight: bold;
+    }
+    .formula-eq span.hl {
+      color: var(--theme);
+      font-weight: 900;
+    }
+
+    .viewport-tools {
+      display: flex;
+      gap: 5px;
+      pointer-events: auto;
+    }
+    .tool-btn {
+      background: rgba(13, 21, 38, 0.85);
+      border: 1px solid var(--panel-border);
+      color: var(--theme);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-family: monospace;
+      font-weight: bold;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+    .tool-btn.active {
+      background: var(--theme);
+      color: #000;
+    }
+
+    .pedagogy-banner {
+      background: rgba(245, 158, 11, 0.05);
+      border: 1px dashed rgba(245, 158, 11, 0.35);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 10px;
+      color: #fde68a;
+      font-family: monospace;
+      line-height: 1.4;
+    }
+    .pedagogy-banner strong {
+      color: var(--theme);
+    }
+
+    /* Live Assembly Source Code IDE Panel */
+    .ide-panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-family: "Courier New", Courier, monospace;
+    }
+    .ide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9.5px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 5px;
+    }
+    .ide-code-line {
+      font-size: 10.5px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      transition: 0.2s;
+    }
+    .ide-code-line.active {
+      background: rgba(245, 158, 11, 0.15);
+      border-left: 3px solid var(--theme);
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .palette-selector {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .palette-btn {
+      height: 30px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      color: var(--muted);
+      border-radius: 5px;
+      font-size: 9.5px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: monospace;
+      transition: 0.2s;
+    }
+    .palette-btn.active {
+      border-color: var(--theme);
+      color: #fff;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .ai-prompt-box {
+      background: rgba(192, 132, 252, 0.05);
+      border: 1px solid rgba(192, 132, 252, 0.3);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ai-prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      font-family: monospace;
+      font-weight: bold;
+      color: #c084fc;
+    }
+    .ai-level-tabs {
+      display: flex;
+      gap: 4px;
+    }
+    .level-tab-btn {
+      background: transparent;
+      border: 1px solid rgba(192, 132, 252, 0.4);
+      color: #c084fc;
+      border-radius: 3px;
+      font-size: 8.5px;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-family: monospace;
+    }
+    .level-tab-btn.active {
+      background: #c084fc;
+      color: #000;
+      font-weight: bold;
+    }
+    .btn-copy-prompt {
+      background: rgba(192, 132, 252, 0.15);
+      border: 1px solid #c084fc;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: monospace;
+      transition: 0.2s;
+    }
+    .btn-copy-prompt:active {
+      background: #c084fc;
+      color: #000;
+    }
+    .ai-prompt-preview {
+      font-size: 10px;
+      color: #d1d5db;
+      font-family: "Courier New", Courier, monospace;
+      line-height: 1.4;
+      background: rgba(0,0,0,0.3);
+      padding: 8px 10px;
+      border-radius: 4px;
+      border-left: 2px solid #c084fc;
+      white-space: pre-wrap;
+      max-height: 75px;
+      overflow-y: auto;
+    }
+
+    .control-panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .slider-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+    }
+    .slider-info span.val {
+      color: var(--theme);
+      font-weight: bold;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 22px;
+      background: transparent;
+      margin: 0;
+      cursor: pointer;
+    }
+    input[type=range]:focus { outline: none; }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      background: #030712;
+      border: 1px solid var(--panel-border);
+      border-radius: 3px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: var(--theme);
+      box-shadow: 0 0 10px var(--theme);
+      cursor: pointer;
+      margin-top: -6px;
+      border: 2px solid #fff;
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .btn-action {
+      height: 40px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: bold;
+      font-family: monospace;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: 0.2s;
+    }
+    .btn-export {
+      background: transparent;
+      border: 1px solid var(--theme);
+      color: var(--theme);
+    }
+    .btn-print {
+      background: var(--theme);
+      border: 1px solid var(--theme);
+      color: #000;
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.3);
+    }
+
+    .spec-card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 10.5px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-family: monospace;
+    }
+    .spec-item { color: var(--muted); }
+    .spec-item strong { color: var(--text); }
+
+    /* ====================================================
+       EDITORIAL MAGAZINE A4 ENGINE (STRICT 1-PAGE A4)
+       ==================================================== */
+    #printLayoutSheet {
+      display: none;
+    }
+
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 0 !important;
+      }
+      html, body {
+        width: 100% !important;
+        height: 100% !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+      }
+      header, .app-container {
+        display: none !important;
+      }
+      
+      #printLayoutSheet {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 95% !important;
+        max-width: 272mm !important;
+        height: 140mm !important;
+        max-height: 140mm !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+        background: #ffffff !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+        break-inside: avoid !important;
+        break-after: avoid !important;
+        font-family: "Georgia", "Times New Roman", serif;
+      }
+
+      .mag-header-bar {
+        height: 8mm;
+        border-bottom: 0.5pt solid #111;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 6.5pt;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: #222;
+        padding: 0 1mm;
+      }
+      .mag-header-bar strong {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-weight: 900;
+        letter-spacing: 2px;
+      }
+
+      .mag-editorial-body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 38% 62%;
+        gap: 4mm;
+        padding: 2.5mm 0;
+        overflow: hidden;
+      }
+
+      .mag-col-theory {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding-right: 3mm;
+        border-right: 0.5pt solid #ccc;
+      }
+      .mag-kicker {
+        font-size: 5.5pt;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-weight: 800;
+        letter-spacing: 1.2px;
+        color: #666;
+        text-transform: uppercase;
+        margin-bottom: 1mm;
+      }
+      .mag-title {
+        font-size: 11pt;
+        font-weight: bold;
+        line-height: 1.15;
+        color: #000;
+        margin: 0 0 1.5mm 0;
+        letter-spacing: -0.2px;
+      }
+      .mag-summary {
+        font-size: 6.5pt;
+        line-height: 1.35;
+        color: #333;
+        text-align: justify;
+      }
+      .mag-summary::first-letter {
+        font-size: 16pt;
+        float: left;
+        line-height: 0.85;
+        padding-right: 1.5mm;
+        font-weight: bold;
+        color: #000;
+        font-family: "Georgia", serif;
+      }
+
+      .mag-formula-box {
+        background: #f8fafc;
+        border-left: 2pt solid #000;
+        padding: 1.5mm 2.2mm;
+        margin: 1.5mm 0;
+      }
+      .mag-formula-box .f-label {
+        font-size: 4.8pt;
+        font-family: sans-serif;
+        font-weight: bold;
+        letter-spacing: 0.8px;
+        color: #666;
+        text-transform: uppercase;
+      }
+      .mag-formula-box .f-math {
+        font-size: 7.5pt;
+        font-weight: bold;
+        color: #000;
+        margin-top: 0.5mm;
+        font-family: "Courier New", Courier, monospace;
+      }
+
+      .mag-ai-box {
+        background: #faf5ff;
+        border: 0.5pt dashed #a855f7;
+        padding: 1.5mm 2mm;
+        border-radius: 2px;
+        font-size: 5pt;
+        color: #4c1d95;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.3;
+      }
+      .mag-ai-box strong {
+        color: #6b21a8;
+        text-transform: uppercase;
+      }
+
+      .mag-specs-grid {
+        font-size: 5.2pt;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #444;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8mm 2mm;
+        border-top: 0.5pt solid #ddd;
+        padding-top: 1.2mm;
+      }
+      .mag-specs-grid strong {
+        color: #000;
+      }
+
+      .mag-col-visual {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: #ffffff;
+      }
+      .mag-col-visual svg {
+        width: 100%;
+        height: 100%;
+        max-height: 104mm;
+        display: block;
+      }
+      .mag-figure-caption {
+        position: absolute;
+        bottom: 0.5mm;
+        right: 1mm;
+        font-size: 5pt;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #777;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+
+      .mag-footer-folio {
+        height: 6mm;
+        border-top: 0.5pt solid #111;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 5.8pt;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #555;
+        padding: 0 1mm;
+      }
+      .mag-footer-folio .page-num {
+        font-weight: bold;
+        color: #000;
+        font-family: "Georgia", serif;
+        font-size: 7.5pt;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="badge-uni" id="badgeTheme">SIAM MICRO SIM</span>
+      <strong style="font-size: 11px;" id="headerTitle">Z80 โฮโลแกรมซิลิคอนเมทริกซ์</strong>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="lang-toggle-btn" id="btnLangToggle" onclick="toggleLanguage()">🌐 TH | EN</button>
+      <div style="font-size: 9.5px; color: var(--muted); font-family: monospace;">Φ 1.618</div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    
+    <!-- ปุ่มสลับ 6 โมเดล -->
+    <div class="model-switch">
+      <button class="switch-btn active" id="btnModelReg" onclick="switchModel('registers')">⚡ REG<br><small id="btnSubReg">รีจิสเตอร์</small></button>
+      <button class="switch-btn" id="btnModelBus" onclick="switchModel('bus')">🚌 BUS<br><small id="btnSubBus">วัฏจักรบัส</small></button>
+      <button class="switch-btn" id="btnModelPio" onclick="switchModel('pio')">🔌 PIO<br><small id="btnSubPio">พอร์ตไอโอ</small></button>
+      <button class="switch-btn" id="btnModelCtc" onclick="switchModel('ctc')">⏱️ CTC<br><small id="btnSubCtc">ไทม์เมอร์</small></button>
+      <button class="switch-btn" id="btnModelMem" onclick="switchModel('mem')">💾 MAP<br><small id="btnSubMem">แมปเมมโมรี</small></button>
+      <button class="switch-btn" id="btnModelAsm" onclick="switchModel('asm')">📜 ASM<br><small id="btnSubAsm">แอสเซมบลี</small></button>
+    </div>
+
+    <!-- Simulator Viewport (โฮโลแกรมซิลิคอนเมทริกซ์เฉพาะแต่ละบทเรียน) -->
+    <div class="cad-viewport" id="viewportTouch">
+      <div class="math-hud-overlay">
+        <div class="formula-card">
+          <div class="formula-title" id="hudTopic">ซิลิคอนโฮโลแกรม: รีจิสเตอร์</div>
+          <div class="formula-eq" id="hudFormula">A = 0x4F | BC = 0x4000 &nbsp;|&nbsp; <span class="hl">เชื่อมต่อเวเฟอร์</span></div>
+        </div>
+        <div class="viewport-tools">
+          <button class="tool-btn active" id="btnStep" onclick="stepSimulation()">⚡ รัน 1 สเตจ</button>
+        </div>
+      </div>
+      <svg id="cadStage" viewBox="0 0 600 370"></svg>
+    </div>
+
+    <!-- แผง Source Code IDE พร้อมไฮไลต์บรรทัดรันจริง -->
+    <div class="ide-panel">
+      <div class="ide-header">
+        <span id="ideTitle">📄 โค้ดต้นฉบับแอสเซมบลี (IDE)</span>
+        <span id="ideStatus" style="color: var(--theme);">PC: 0x0000 | T-STATES: 10</span>
+      </div>
+      <div class="ide-code-line active" id="line0"><span>0000H: LD HL, 4000H</span><span style="color:var(--muted)">[3 ไบต์, 10 T]</span></div>
+      <div class="ide-code-line" id="line1"><span>0003H: LD A, (HL)</span><span style="color:var(--muted)">[1 ไบต์, 7 T]</span></div>
+      <div class="ide-code-line" id="line2"><span>0004H: INC HL</span><span style="color:var(--muted)">[1 ไบต์, 6 T]</span></div>
+      <div class="ide-code-line" id="line3"><span>0005H: OUT (00H), A</span><span style="color:var(--muted)">[2 ไบต์, 11 T]</span></div>
+    </div>
+
+    <!-- แถบสรุปแก่นฮาร์ดแวร์ -->
+    <div class="pedagogy-banner" id="pedagogyBanner">
+      <strong>แก่นโฮโลแกรม:</strong> จำลองโหนดซิลิคอนเวเฟอร์ 3 มิติ แสดงการส่งกระแสไฟฟ้าผ่านลายวงจรทองคำแบบเรียลไทม์
+    </div>
+
+    <!-- แถบสลับ Color Palette -->
+    <div class="palette-selector">
+      <button class="palette-btn active" id="palCyber" onclick="setPalette('cyber')">🌐 CYBER</button>
+      <button class="palette-btn" id="palChalk" onclick="setPalette('chalk')">📐 SCHEMATIC</button>
+      <button class="palette-btn" id="palAxis" onclick="setPalette('axis')">🟢 LED-PANEL</button>
+      <button class="palette-btn" id="palPaper" onclick="setPalette('paper')">📄 PAPER</button>
+    </div>
+
+    <!-- กล่อง AI PROMPT LAB -->
+    <div class="ai-prompt-box">
+      <div class="ai-prompt-header">
+        <span id="txtAiHeader">🤖 ห้องทดลอง AI ถาม-ตอบ Z80</span>
+        <div class="ai-level-tabs">
+          <button class="level-tab-btn active" id="btnLvlBasic" onclick="setPromptLevel('basic')">เริ่มต้น</button>
+          <button class="level-tab-btn" id="btnLvlAdv" onclick="setPromptLevel('adv')">เจาะลึกฮาร์ดแวร์</button>
+        </div>
+        <button class="btn-copy-prompt" onclick="copyCurrentPrompt()">📋 คัดลอก</button>
+      </div>
+      <div class="ai-prompt-preview" id="aiPromptPreview">กำลังสร้างชุดคำถามอัจฉริยะสำหรับ Z80 Hologram Simulator...</div>
+    </div>
+
+    <div class="control-panel">
+      
+      <div class="slider-group">
+        <div class="slider-info">
+          <span id="lblRot">ความเร็วซิมูเลชัน (Hz)</span>
+          <span class="val" id="valRot">10 Hz</span>
+        </div>
+        <input type="range" id="rotSlider" min="1" max="50" value="10" oninput="updateRender();">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-info">
+          <span id="lblTilt">ค่าเริ่มต้นรีจิสเตอร์สะสม (Accumulator A)</span>
+          <span class="val" id="valTilt">0x4F</span>
+        </div>
+        <input type="range" id="tiltSlider" min="0" max="255" value="79" oninput="updateRender()">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-info">
+          <span id="lblScale">ความกว้างบิตข้อมูล (Data Bus Width)</span>
+          <span class="val" id="valScale">8-Bit</span>
+        </div>
+        <input type="range" id="scaleSlider" min="8" max="16" value="8" oninput="updateRender()">
+      </div>
+
+      <div class="slider-group" id="customSliderGroup">
+        <div class="slider-info">
+          <span id="customSliderLabel">ขั้นตอนคำสั่งแอสเซมบลี (Instruction Step)</span>
+          <span class="val" id="valCustom">Step #0</span>
+        </div>
+        <input type="range" id="customSlider" min="0" max="3" value="0" step="1" oninput="updateRender()">
+      </div>
+
+      <div class="action-row">
+        <button class="btn-action btn-export" id="btnExportSvg" onclick="exportSVG()">💾 บันทึก SVG</button>
+        <button class="btn-action btn-print" id="btnPrintEditorial" onclick="printEditorialLayout()">📰 พิมพ์รายงาน A4</button>
+      </div>
+
+    </div>
+
+    <div class="spec-card" id="specCard"></div>
+
+  </div>
+
+  <!-- แผ่นพิมพ์สไตล์วารสารวิชาการ A4 EDITORIAL -->
+  <div id="printLayoutSheet">
+    
+    <div class="mag-header-bar">
+      <span id="printHeaderOrg">โครงการระบบสมองกลฝังตัวประเทศไทย • สื่อการสอนจำลองฮาร์ดแวร์ Z80</span>
+      <strong id="printHeaderTitle">รายงานผลการจำลอง Z80 • ฉบับพิเศษ 2026</strong>
+    </div>
+
+    <div class="mag-editorial-body">
+      
+      <div class="mag-col-theory">
+        <div>
+          <div class="mag-kicker" id="printMagKicker">ส่วนที่ 1 • โฮโลแกรมซิลิคอนเวเฟอร์</div>
+          <h1 class="mag-title" id="printMagTitle">การจำลองซิลิคอนเมทริกซ์ Z80</h1>
+          <div class="mag-summary" id="printMagSummary">
+            สื่อการสอนจำลองฮาร์ดแวร์ไมโครโปรเซสเซอร์ Z80 ในรูปแบบโฮโลแกรมซิลิคอนเวเฟอร์ ช่วยให้นักศึกษาสามารถเข้าใจสถาปัตยกรรมภายในและการไหลของกระแสไฟฟ้าผ่านลายวงจรทองคำได้อย่างเห็นภาพจริง
+          </div>
+        </div>
+
+        <div class="mag-formula-box">
+          <div class="f-label" id="printFormulaLabel">หลักการโฮโลแกรมซิลิคอน</div>
+          <div class="f-math" id="printFormulaText">Holo_State = Trace_Routing(Node_A, Node_B)</div>
+        </div>
+
+        <div class="mag-ai-box">
+          <strong id="printAiBoxTitle">คำถามวิจัยเชิงลึกกับ AI:</strong>
+          <div id="magAiShortPrompt" style="margin-top:0.5mm;">
+            "อธิบายความสัมพันธ์ระหว่างสถาปัตยกรรมซิลิคอนเวเฟอร์และรอบสัญญาณนาฬิกาของ Z80 CPU"
+          </div>
+        </div>
+
+        <div class="mag-specs-grid" id="magSpecsGrid">
+          <div>โหมด: <strong>โฮโลแกรมซิลิคอน</strong></div>
+          <div>ขั้นตอน: <strong id="magSpecStep">สเตจ #0</strong></div>
+          <div>บัส: <strong>8 บิต สองทิศทาง</strong></div>
+          <div>สัดส่วน: <strong>ทองคำ 1:1.618</strong></div>
+        </div>
+      </div>
+
+      <div class="mag-col-visual">
+        <div id="printCanvasContainer" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
+        <div class="mag-figure-caption" id="printFigCaption">รูปที่ 01 — โฮโลแกรมซิลิคอนเวเฟอร์ Z80</div>
+      </div>
+
+    </div>
+
+    <div class="mag-footer-folio">
+      <span id="printFooterLeft">สยามไมโครซิม • แหล่งเรียนรู้แบบเปิดเพื่อเยาวชนไทย</span>
+      <span id="magIssueCode">TH-Z80-HOLO-001</span>
+      <span class="page-num">หน้า 01 / 01</span>
+    </div>
+
+  </div>
+
+  <script>
+    let activeModel = 'registers';
+    let currentLang = 'th';
+    let activePalette = 'cyber';
+    let currentColor = '#f59e0b';
+    let currentMasterPrompt = '';
+
+    function toggleLanguage() {
+      currentLang = (currentLang === 'th') ? 'en' : 'th';
+      document.getElementById('btnLangToggle').innerText = currentLang === 'th' ? '🌐 TH | EN' : '🌐 EN | TH';
+      
+      if (currentLang === 'th') {
+        document.getElementById('headerTitle').innerText = "Z80 โฮโลแกรมซิลิคอนเมทริกซ์";
+        document.getElementById('btnSubReg').innerText = "รีจิสเตอร์";
+        document.getElementById('btnSubBus').innerText = "วัฏจักรบัส";
+        document.getElementById('btnSubPio').innerText = "พอร์ตไอโอ";
+        document.getElementById('btnSubCtc').innerText = "ไทม์เมอร์";
+        document.getElementById('btnSubMem').innerText = "แมปเมมโมรี";
+        document.getElementById('btnSubAsm').innerText = "แอสเซมบลี";
+        document.getElementById('txtAiHeader').innerText = "🤖 ห้องทดลอง AI ถาม-ตอบ Z80";
+        document.getElementById('lblRot').innerText = "ความเร็วซิมูเลชัน (Hz)";
+        document.getElementById('lblTilt').innerText = "ค่าเริ่มต้นรีจิสเตอร์สะสม (Accumulator A)";
+        document.getElementById('lblScale').innerText = "ความกว้างบิตข้อมูล (Data Bus Width)";
+        document.getElementById('customSliderLabel').innerText = "ขั้นตอนคำสั่งแอสเซมบลี (Instruction Step)";
+        document.getElementById('btnExportSvg').innerText = "💾 บันทึก SVG";
+        document.getElementById('btnPrintEditorial').innerText = "📰 พิมพ์รายงาน A4";
+        document.getElementById('ideTitle').innerText = "📄 โค้ดต้นฉบับแอสเซมบลี (IDE)";
+        document.getElementById('btnStep').innerText = "⚡ รัน 1 สเตจ";
+
+        document.getElementById('printHeaderOrg').innerText = "โครงการระบบสมองกลฝังตัวประเทศไทย • สื่อการสอนจำลองฮาร์ดแวร์ Z80";
+        document.getElementById('printHeaderTitle').innerText = "รายงานผลการจำลอง Z80 • ฉบับพิเศษ 2026";
+        document.getElementById('printFooterLeft').innerText = "สยามไมโครซิม • แหล่งเรียนรู้แบบเปิดเพื่อเยาวชนไทย";
+      } else {
+        document.getElementById('headerTitle').innerText = "Z80 HOLOGRAPHIC SILICON";
+        document.getElementById('btnSubReg').innerText = "Registers";
+        document.getElementById('btnSubBus').innerText = "Bus Cycles";
+        document.getElementById('btnSubPio').innerText = "Z80-PIO";
+        document.getElementById('btnSubCtc').innerText = "Z80-CTC";
+        document.getElementById('btnSubMem').innerText = "Memory Map";
+        document.getElementById('btnSubAsm').innerText = "Assembly";
+        document.getElementById('txtAiHeader').innerText = "🤖 Z80 HOLOGRAPHIC AI LAB";
+        document.getElementById('lblRot').innerText = "SIMULATION SPEED (Hz Rate)";
+        document.getElementById('lblTilt').innerText = "ACCUMULATOR MASK (Initial A)";
+        document.getElementById('lblScale').innerText = "DATA BUS WIDTH (Bus Sizing)";
+        document.getElementById('customSliderLabel').innerText = "ASSEMBLY INSTRUCTION STEP (Step Index)";
+        document.getElementById('btnExportSvg').innerText = "💾 EXPORT SCHEMATIC";
+        document.getElementById('btnPrintEditorial').innerText = "📰 PRINT REPORT A4";
+        document.getElementById('ideTitle').innerText = "📄 LIVE ASSEMBLY SOURCE CODE (IDE)";
+        document.getElementById('btnStep').innerText = "⚡ STEP";
+
+        document.getElementById('printHeaderOrg').innerText = "GLOBAL EMBEDDED SYSTEMS INITIATIVE • THAILAND";
+        document.getElementById('printHeaderTitle').innerText = "Z80 HOLOGRAPHIC SILICON REVIEW • MONOGRAPH 2026";
+        document.getElementById('printFooterLeft').innerText = "SIAM MICRO SIM • OPEN EDUCATIONAL RESOURCE";
+      }
+
+      switchModel(activeModel);
+    }
+
+    function setPalette(pal) {
+      activePalette = pal;
+      document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('pal' + pal.charAt(0).toUpperCase() + pal.slice(1)).classList.add('active');
+
+      const vp = document.getElementById('viewportTouch');
+
+      if (pal === 'cyber') {
+        currentColor = '#f59e0b';
+        document.documentElement.style.setProperty('--theme', '#f59e0b');
+        vp.style.background = '#020617';
+      } else if (pal === 'chalk') {
+        currentColor = '#38bdf8';
+        document.documentElement.style.setProperty('--theme', '#38bdf8');
+        vp.style.background = '#091526';
+      } else if (pal === 'axis') {
+        currentColor = '#10b981';
+        document.documentElement.style.setProperty('--theme', '#10b981');
+        vp.style.background = '#06120d';
+      } else {
+        currentColor = '#d97706';
+        document.documentElement.style.setProperty('--theme', '#d97706');
+        vp.style.background = '#f8fafc';
+      }
+      updateRender();
+    }
+
+    function setPromptLevel(lvl) {
+      document.getElementById('btnLvlBasic').classList.toggle('active', lvl === 'basic');
+      document.getElementById('btnLvlAdv').classList.toggle('active', lvl === 'adv');
+      updateRender();
+    }
+
+    function switchModel(m) {
+      activeModel = m;
+      document.getElementById('btnModelReg').classList.toggle('active', m === 'registers');
+      document.getElementById('btnModelBus').classList.toggle('active', m === 'bus');
+      document.getElementById('btnModelPio').classList.toggle('active', m === 'pio');
+      document.getElementById('btnModelCtc').classList.toggle('active', m === 'ctc');
+      document.getElementById('btnModelMem').classList.toggle('active', m === 'mem');
+      document.getElementById('btnModelAsm').classList.toggle('active', m === 'asm');
+
+      const customSlider = document.getElementById('customSlider');
+      customSlider.min = 0;
+      customSlider.max = 3;
+      customSlider.value = 0;
+      customSlider.step = 1;
+
+      updateRender();
+    }
+
+    function stepSimulation() {
+      const slider = document.getElementById('customSlider');
+      let val = parseInt(slider.value) + 1;
+      if (val > 3) val = 0;
+      slider.value = val;
+      updateRender();
+    }
+
+    async function copyCurrentPrompt() {
+      try {
+        await navigator.clipboard.writeText(currentMasterPrompt);
+        const btn = document.querySelector('.btn-copy-prompt');
+        const oldText = btn.innerText;
+        btn.innerText = currentLang === 'th' ? "คัดลอกแล้ว!" : "COPIED!";
+        btn.style.background = "#10b981";
+        btn.style.color = "#000";
+        setTimeout(() => {
+          btn.innerText = oldText;
+          btn.style.background = "";
+          btn.style.color = "";
+        }, 1500);
+      } catch (err) {
+        alert("Copy failed");
+      }
+    }
+
+    function printEditorialLayout() {
+      const stepVal = parseInt(document.getElementById('customSlider').value);
+      document.getElementById('magSpecStep').innerText = currentLang === 'th' ? `สเตจ #${stepVal}` : `Step #${stepVal}`;
+      document.getElementById('magIssueCode').innerText = `TH-Z80-${activeModel.toUpperCase()}-00${stepVal+1}`;
+
+      const container = document.getElementById('printCanvasContainer');
+      let innerSvg = generateHoloModelSVG(activeModel, stepVal, '#000000', 200);
+
+      container.innerHTML = `<svg viewBox="0 0 600 370" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">${innerSvg}</svg>`;
+
+      setTimeout(() => {
+        window.print();
+      }, 300);
+    }
+
+    async function exportSVG() {
+      const svg = document.getElementById('cadStage');
+      if (!svg) return;
+
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svg);
+      if (!source.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+
+      const fileName = `SiamHoloZ80_${activeModel}_${Date.now()}.svg`;
+      const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    }
+
+    function updateRender() {
+      const speedHz = parseFloat(document.getElementById('rotSlider').value);
+      const initA = parseFloat(document.getElementById('tiltSlider').value);
+      const busWidth = parseFloat(document.getElementById('scaleSlider').value);
+      const stepVal = parseInt(document.getElementById('customSlider').value);
+
+      document.getElementById('valRot').innerText = `${speedHz} Hz`;
+      document.getElementById('valTilt').innerText = `0x${Math.round(initA).toString(16).toUpperCase().padStart(2,'0')}`;
+      document.getElementById('valScale').innerText = `${busWidth}-Bit`;
+      document.getElementById('valCustom').innerText = currentLang === 'th' ? `สเตจ #${stepVal}` : `Step #${stepVal}`;
+
+      const hudTopic = document.getElementById('hudTopic');
+      const hudFormula = document.getElementById('hudFormula');
+      const spec = document.getElementById('specCard');
+      const stage = document.getElementById('cadStage');
+      const promptPreview = document.getElementById('aiPromptPreview');
+      const banner = document.getElementById('pedagogyBanner');
+
+      if (activeModel === 'registers') {
+        hudTopic.innerText = currentLang === 'th' ? "โฮโลแกรมซิลิคอน: รีจิสเตอร์" : "HOLOGRAPHIC REGISTERS";
+        hudFormula.innerHTML = `A = 0x${Math.round(initA).toString(16).toUpperCase().padStart(2,'0')} | HL = 0x4000 &nbsp;|&nbsp; <span class="hl">เวเฟอร์ซิลิคอน</span>`;
+        banner.innerHTML = currentLang === 'th' ? 
+          "<strong>กิมมิกโฮโลแกรม:</strong> แผ่นเวเฟอร์ซิลิคอน 3 มิติ ลอยตัวพร้อมเส้นทางเดินทองคำส่งกระแสไฟฟ้าระหว่างรีจิสเตอร์ A และคู่ HL" :
+          "<strong>Holographic Gimmick:</strong> 3D floating silicon wafer with gold trace routing transmitting electrical currents between A and HL registers.";
+        spec.innerHTML = `
+          <div class="spec-item">รีจิสเตอร์ A: <strong>0x${Math.round(initA).toString(16).toUpperCase().padStart(2,'0')}</strong></div>
+          <div class="spec-item">รีจิสเตอร์ HL: <strong>0x4000</strong></div>
+          <div class="spec-item">สถานะเวเฟอร์: <strong>Holographic Active</strong></div>
+          <div class="spec-item">โหมด: <strong>Silicon Matrix</strong></div>
+        `;
+        if(currentLang === 'th') {
+          document.getElementById('printMagKicker').innerText = "บทเรียนที่ 1 • โฮโลแกรมซิลิคอนรีจิสเตอร์";
+          document.getElementById('printMagTitle').innerText = "สถาปัตยกรรมรีจิสเตอร์บนแผ่นซิลิคอนเวเฟอร์";
+          document.getElementById('printMagSummary').innerText = "การจำลองสถาปัตยกรรม Z80 ในรูปแบบโฮโลแกรม 3 มิติ ช่วยแสดงความสัมพันธ์ระหว่างรีจิสเตอร์ภายในและเส้นทางเดินทองคำบนชิปซิลิคอน";
+          document.getElementById('printFormulaLabel').innerText = "สถานะโหนดซิลิคอน";
+          document.getElementById('printFormulaText').innerText = "Node_A -> Trace_HL Active";
+        } else {
+          document.getElementById('printMagKicker').innerText = "LESSON I • HOLOGRAPHIC REGISTERS";
+          document.getElementById('printMagTitle').innerText = "Silicon Wafer Register Architecture";
+          document.getElementById('printMagSummary').innerText = "3D holographic Z80 simulation visualizes internal register relationships and gold trace routing across silicon wafers.";
+          document.getElementById('printFormulaLabel').innerText = "SILICON NODE STATE";
+          document.getElementById('printFormulaText').innerText = "Node_A -> Trace_HL Active";
+        }
+        currentMasterPrompt = currentLang === 'th' ? 
+          `อธิบายสถาปัตยกรรมรีจิสเตอร์ Z80 ในรูปแบบโฮโลแกรมซิลิคอนเวเฟอร์ เมื่อค่า A = 0x${Math.round(initA).toString(16).toUpperCase().padStart(2,'0')}` :
+          `Explain Z80 register architecture as a holographic silicon wafer with A = 0x${Math.round(initA).toString(16).toUpperCase().padStart(2,'0')}.`;
+
+      } else if (activeModel === 'bus') {
+        hudTopic.innerText = currentLang === 'th' ? "โฮโลแกรมซิลิคอน: อุโมงค์บัส M1" : "HOLOGRAPHIC M1 WORMHOLE";
+        hudFormula.innerHTML = `M1 Wormhole | $\overline{\text{MREQ}}$ &nbsp;|&nbsp; <span class="hl">ไฮเปอร์สเปซ</span>`;
+        banner.innerHTML = currentLang === 'th' ? 
+          "<strong>กิมมิกโฮโลแกรม:</strong> อุโมงค์พลังงานแสง (Quantum Wormhole) จำลองการพุ่งทะลุมิติของสัญญาณควบคุมบัส $\overline{\text{MREQ}}, \overline{\text{RD}}$" :
+          "<strong>Holographic Gimmick:</strong> Quantum light-energy wormhole simulating hyperspace transmission of $\overline{\text{MREQ}}, \overline{\text{RD}}$ bus signals.";
+        spec.innerHTML = `
+          <div class="spec-item">วัฏจักร: <strong>M1 Quantum Fetch</strong></div>
+          <div class="spec-item">ช่องทางบัส: <strong>Hyperspace Light Pulse</strong></div>
+          <div class="spec-item">สถานะ: <strong>Wormhole Active</strong></div>
+          <div class="spec-item">โหมด: <strong>Quantum Data Stream</strong></div>
+        `;
+        if(currentLang === 'th') {
+          document.getElementById('printMagKicker').innerText = "บทเรียนที่ 2 • โฮโลแกรมวัฏจักรบัส";
+          document.getElementById('printMagTitle').innerText = "อุโมงค์แสงควอนตัมสำหรับสัญญาณบัส M1";
+          document.getElementById('printMagSummary').innerText = "จำลองการส่งผ่านสัญญาณควบคุมบัสผ่านอุโมงค์แสงควอนตัม เพื่อแสดงความเร็วและความต่อเนื่องของการดึงรหัสคำสั่งในระบบซีพียู";
+          document.getElementById('printFormulaLabel').innerText = "สถานะอุโมงค์แสง";
+          document.getElementById('printFormulaText').innerText = "Wormhole_Speed = Hyper_T_States";
+        } else {
+          document.getElementById('printMagKicker').innerText = "LESSON II • HOLOGRAPHIC BUS CYCLES";
+          document.getElementById('printMagTitle').innerText = "Quantum Light Wormhole for M1 Bus";
+          document.getElementById('printMagSummary').innerText = "Simulating control bus transmission through quantum light wormholes to visualize high-speed opcode fetching.";
+          document.getElementById('printFormulaLabel').innerText = "WORMHOLE STATE";
+          document.getElementById('printFormulaText').innerText = "Wormhole_Speed = Hyper_T_States";
+        }
+        currentMasterPrompt = currentLang === 'th' ? 
+          `อธิบายการจำลองวัฏจักรบัส M1 ในรูปแบบอุโมงค์แสงควอนตัม (Quantum Wormhole) ของชิป Z80` :
+          `Explain Z80 M1 bus cycle simulation formatted as a quantum light wormhole transmission.`;
+
+      } else if (activeModel === 'pio') {
+        hudTopic.innerText = currentLang === 'th' ? "โฮโลแกรมซิลิคอน: พอร์ต PIO" : "CYBERNETIC PIO MATRIX";
+        hudFormula.innerHTML = `Port A Matrix | Handshake &nbsp;|&nbsp; <span class="hl">ซินแนปส์</span>`;
+        banner.innerHTML = currentLang === 'th' ? 
+          "<strong>กิมมิกโฮโลแกรม:</strong> โครงข่ายซินแนปส์พอร์ตขนาน (Cybernetic Synapses Matrix) เชื่อมโยงสัญญาณ Handshake สว่างวาบเป็นกระแสไฟฟ้า" :
+          "<strong>Holographic Gimmick:</strong> Cybernetic synapses matrix linking parallel port handshake signals with flashing electrical arcs.";
+        spec.innerHTML = `
+          <div class="spec-item">พอร์ต: <strong>Z80-PIO Cyber Matrix</strong></div>
+          <div class="spec-item">สัญญาณ: <strong>STB / RDY Synapse Arc</strong></div>
+          <div class="spec-item">สถานะ: <strong>Neural Interconnect</strong></div>
+          <div class="spec-item">โหมด: <strong>Cybernetic I/O</strong></div>
+        `;
+        if(currentLang === 'th') {
+          document.getElementById('printMagKicker').innerText = "บทเรียนที่ 3 • โฮโลแกรมพอร์ตไอโอ";
+          document.getElementById('printMagTitle').innerText = "โครงข่ายซินแนปส์ไซเบอร์เนติกส์สำหรับ Z80-PIO";
+          document.getElementById('printMagSummary').innerText = "การจำลองการสื่อสารพอร์ตขนานผ่านโครงข่ายซินแนปส์ไซเบอร์เนติกส์ ช่วยให้เห็นเส้นทางการส่งข้อมูลและสัญญาณ Handshake เสมือนกระแสประสาท";
+          document.getElementById('printFormulaLabel').innerText = "สถานะซินแนปส์ไอโอ";
+          document.getElementById('printFormulaText').innerText = "Synapse_Arc = STB & RDY";
+        } else {
+          document.getElementById('printMagKicker').innerText = "LESSON III • HOLOGRAPHIC PIO";
+          document.getElementById('printMagTitle').innerText = "Cybernetic Synapses Matrix for Z80-PIO";
+          document.getElementById('printMagSummary').innerText = "Simulating parallel port communication through cybernetic synapses visualizing data and handshake routing like neural pulses.";
+          document.getElementById('printFormulaLabel').innerText = "SYNAPSE IO STATE";
+          document.getElementById('printFormulaText').innerText = "Synapse_Arc = STB & RDY";
+        }
+        currentMasterPrompt = currentLang === 'th' ? 
+          `อธิบายการเชื่อมต่อพอร์ตขนาน Z80-PIO ในรูปแบบโครงข่ายซินแนปส์ไซเบอร์เนติกส์ (Cybernetic Synapses Matrix)` :
+          `Explain Z80-PIO parallel interfacing structured as a cybernetic synapses matrix.`;
+
+      } else if (activeModel === 'ctc') {
+        hudTopic.innerText = currentLang === 'th' ? "โฮโลแกรมซิลิคอน: วงแหวน CTC" : "QUANTUM CLOCK RINGS";
+        hudFormula.innerHTML = `Clock Rings | Prescaler &nbsp;|&nbsp; <span class="hl">หมุนวนพลังงาน</span>`;
+        banner.innerHTML = currentLang === 'th' ? 
+          "<strong>กิมมิกโฮโลแกรม:</strong> วงแหวนนาฬิกาควอนตัม (Quantum Clock Rings) หมุนวนรอบแกนกลางเพื่อแผ่รังสีพัลส์ความถี่และอัตรา Baud Rate" :
+          "<strong>Holographic Gimmick:</strong> Concentric quantum clock rings rotating around a core center radiating precise frequency pulses and baud rates.";
+        spec.innerHTML = `
+          <div class="spec-item">ไทม์เมอร์: <strong>Z80-CTC Quantum Rings</strong></div>
+          <div class="spec-item">การหมุน: <strong>Concentric Frequency Core</strong></div>
+          <div class="spec-item">สถานะ: <strong>Pulse Radiation Active</strong></div>
+          <div class="spec-item">โหมด: <strong>Quantum Clock</strong></div>
+        `;
+        if(currentLang === 'th') {
+          document.getElementById('printMagKicker').innerText = "บทเรียนที่ 4 • โฮโลแกรมไทม์เมอร์";
+          document.getElementById('printMagTitle').innerText = "วงแหวนนาฬิกาควอนตัมสำหรับชิป Z80-CTC";
+          document.getElementById('printMagSummary').innerText = "จำลองการสร้างอัตรา Baud Rate และฮาร์ดแวร์อินเทอร์รัปต์ผ่านวงแหวนนาฬิกาควอนตัม ที่หมุนวนแผ่รังสีพัลส์ความถี่อย่างแม่นยำ";
+          document.getElementById('printFormulaLabel').innerText = "รัศมีวงแหวนความถี่";
+          document.getElementById('printFormulaText').innerText = "Ring_Speed = Clock / TC";
+        } else {
+          document.getElementById('printMagKicker').innerText = "LESSON IV • HOLOGRAPHIC CTC";
+          document.getElementById('printMagTitle').innerText = "Quantum Clock Rings for Z80-CTC";
+          document.getElementById('printMagSummary').innerText = "Simulating baud rate generation and hardware interrupts via concentric quantum clock rings radiating precise frequency pulses.";
+          document.getElementById('printFormulaLabel').innerText = "CLOCK RING RADIUS";
+          document.getElementById('printFormulaText').innerText = "Ring_Speed = Clock / TC";
+        }
+        currentMasterPrompt = currentLang === 'th' ? 
+          `อธิบายการทำงานของ Z80-CTC ในมุมมองวงแหวนนาฬิกาควอนตัม (Quantum Clock Rings) และการสร้างอินเทอร์รัปต์` :
+          `Explain Z80-CTC operation visualized as concentric quantum clock rings and interrupt generation.`;
+
+      } else if (activeModel === 'mem') {
+        hudTopic.innerText = currentLang === 'th' ? "โฮโลแกรมซิลิคอน: ชั้นเมมโมรี" : "HOLOGRAPHIC MEMORY STACK";
+        hudFormula.innerHTML = `ROM / RAM Stack | 64KB &nbsp;|&nbsp; <span class="hl">ชั้นพลังงาน 3D</span>`;
+        banner.innerHTML = currentLang === 'th' ? 
+          "<strong>กิมมิกโฮโลแกรม:</strong> แผ่นชั้นหน่วยความจำ 3 มิติ (Holographic Memory Stack) แยกชั้นรอมและแรมเป็นเลเยอร์เรืองแสงสไตล์ไซเบอร์" :
+          "<strong>Holographic Gimmick:</strong> 3D holographic memory stack separating ROM and RAM chips into glowing cybernetic translucent layers.";
+        spec.innerHTML = `
+          <div class="spec-item">สถาปัตยกรรม: <strong>64KB Holographic Stack</strong></div>
+          <div class="spec-item">เลเยอร์ ROM: <strong>0000H - 7FFFH (Cyan Glow)</strong></div>
+          <div class="spec-item">เลเยอร์ RAM: <strong>8000H - FFFFH (Emerald Glow)</strong></div>
+          <div class="spec-item">โหมด: <strong>Multi-Layer Memory</strong></div>
+        `;
+        if(currentLang === 'th') {
+          document.getElementById('printMagKicker').innerText = "บทเรียนที่ 5 • โฮโลแกรมเมมโมรี";
+          document.getElementById('printMagTitle').innerText = "สถาปัตยกรรมชั้นหน่วยความจำ 64KB แบบ 3 มิติ";
+          document.getElementById('printMagSummary').innerText = "การถอดรหัสแอดเดรสบัสแสดงผลในรูปแบบชั้นหน่วยความจำโฮโลแกรม 3 มิติ แยกเลเยอร์รอมและแรมด้วยแสงเรืองแสงสีฟ้าและเขียว";
+          document.getElementById('printFormulaLabel').innerText = "เลเยอร์หน่วยความจำ";
+          document.getElementById('printFormulaText').innerText = "Layer_Stack = Decoder(A14, A15)";
+        } else {
+          document.getElementById('printMagKicker').innerText = "LESSON V • HOLOGRAPHIC MEMORY";
+          document.getElementById('printMagTitle').innerText = "3D Holographic Memory Stack Architecture";
+          document.getElementById('printMagSummary').innerText = "Address decoding visualized as a 3D holographic memory stack separating ROM and RAM into glowing cyan and emerald layers.";
+          document.getElementById('printFormulaLabel').innerText = "MEMORY LAYER STACK";
+          document.getElementById('printFormulaText').innerText = "Layer_Stack = Decoder(A14, A15)";
+        }
+        currentMasterPrompt = currentLang === 'th' ? 
+          `อธิบายการถอดรหัสหน่วยความจำ 64KB ในรูปแบบสถาปัตยกรรมชั้นหน่วยความจำโฮโลแกรม 3 มิติ (Holographic Memory Stack)` :
+          `Explain 64KB memory decoding formatted as a 3D holographic memory stack architecture.`;
+
+      } else {
+        hudTopic.innerText = currentLang === 'th' ? "โฮโลแกรมซิลิคอน: วงเวทย์แอสเซมบลี" : "CYBERNETIC SPELLBOOK IDE";
+        hudFormula.innerHTML = `Step #0 : LD HL, 4000H &nbsp;|&nbsp; <span class="hl">วงเวทย์รันคำสั่ง</span>`;
+        banner.innerHTML = currentLang === 'th' ? 
+          "<strong>กิมมิกโฮโลแกรม:</strong> วงเวทย์ไซเบอร์แอสเซมบลี (Cybernetic Spellbook Circuit Circle) หมุนเรืองแสงทุกครั้งที่กดรันคำสั่งทีละสเตจ" :
+          "<strong>Holographic Gimmick:</strong> Cybernetic spellbook circuit circle rotating and glowing with mystic runes every time an instruction step executes.";
+        spec.innerHTML = `
+          <div class="spec-item">ขั้นตอน: <strong>Step #0 (LD HL, 4000H)</strong></div>
+          <div class="spec-item">วงเวทย์: <strong>Cybernetic Runes Active</strong></div>
+          <div class="spec-item">โหมด: <strong>Single-Step Spellcasting</strong></div>
+          <div class="spec-item">ซิมูเลเตอร์: <strong>Masterpiece IDE</strong></div>
+        `;
+        if(currentLang === 'th') {
+          document.getElementById('printMagKicker').innerText = "บทเรียนที่ 6 • โฮโลแกรมแอสเซมบลี";
+          document.getElementById('printMagTitle').innerText = "วงเวทย์ไซเบอร์แอสเซมบลีและการดีบัก";
+          document.getElementById('printMagSummary').innerText = "การรันชุดคำสั่งภาษาแอสเซมบลีสะท้อนผ่านวงเวทย์ไซเบอร์สไตล์เวทมนตร์ล้ำยุค ผสมผสานโค้ดต้นฉบับและการเปลี่ยนค่ารีจิสเตอร์อย่างน่าอัศจรรย์";
+          document.getElementById('printFormulaLabel').innerText = "พลังงานวงเวทย์คำสั่ง";
+          document.getElementById('printFormulaText').innerText = "Spell_Power = Opcode_Fetch(PC)";
+        } else {
+          document.getElementById('printMagKicker').innerText = "LESSON VI • HOLOGRAPHIC ASSEMBLY";
+          document.getElementById('printMagTitle').innerText = "Cybernetic Spellbook IDE Execution";
+          document.getElementById('printMagSummary').innerText = "Assembly instruction execution visualized through rotating cybernetic spellbook circuit circles fusing code with mystic runes.";
+          document.getElementById('printFormulaLabel').innerText = "SPELL POWER METRIC";
+          document.getElementById('printFormulaText').innerText = "Spell_Power = Opcode_Fetch(PC)";
+        }
+        currentMasterPrompt = currentLang === 'th' ? 
+          `อธิบายการรันคำสั่งแอสเซมบลี Z80 ในรูปแบบวงเวทย์ไซเบอร์ (Cybernetic Spellbook IDE) พร้อมการทำงานของรีจิสเตอร์` :
+          `Explain Z80 assembly instruction execution visualized via cybernetic spellbook circuit circles and register alterations.`;
+      }
+
+      stage.innerHTML = generateHoloModelSVG(activeModel, stepVal, currentColor, 200);
+      promptPreview.innerText = currentMasterPrompt;
+    }
+
+    // ฟังก์ชันสร้างภาพโฮโลแกรมซิลิคอนเฉพาะตัวที่ไม่ซ้ำกันในแต่ละบทเรียน
+    function generateHoloModelSVG(model, step, color, cyPos) {
+      const cx = 300, cy = cyPos;
+
+      if (model === 'registers') {
+        return `
+          <defs><pattern id="gridHoloReg_${cyPos}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="${color}" stroke-opacity="0.05" stroke-width="0.8"/></pattern></defs>
+          <rect width="600" height="370" fill="url(#gridHoloReg_${cyPos})"/>
+          <!-- ซิลิคอนเวเฟอร์ 3 มิติ ลอยตัว -->
+          <polygon points="180,${cy-50} 300,${cy-85} 420,${cy-50} 300,${cy-15}" fill="rgba(245, 158, 11, 0.08)" stroke="${color}" stroke-width="2"/>
+          <polygon points="180,${cy-50} 300,${cy-15} 300,${cy+65} 180,${cy+30}" fill="rgba(245, 158, 11, 0.04)" stroke="${color}" stroke-width="1.5"/>
+          <polygon points="420,${cy-50} 300,${cy-15} 300,${cy+65} 420,${cy+30}" fill="rgba(245, 158, 11, 0.06)" stroke="${color}" stroke-width="1.5"/>
+          
+          <circle class="holo-glow" cx="240" cy="${cy-10}" r="7" fill="#10b981"/>
+          <circle class="holo-glow" cx="360" cy="${cy+10}" r="7" fill="#f59e0b"/>
+          <path d="M 240 cy-10 Q 300 cy+40 360 cy+10" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3 3"/>
+
+          <text x="300" y="${cy+85}" fill="${color}" font-size="10" font-weight="bold" font-family="monospace" text-anchor="middle">HOLOGRAPHIC SILICON WAFER: REGISTER MATRIX</text>
+        `;
+      } else if (model === 'bus') {
+        return `
+          <defs><pattern id="gridHoloBus_${cyPos}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="${color}" stroke-opacity="0.05" stroke-width="0.8"/></pattern></defs>
+          <rect width="600" height="370" fill="url(#gridHoloBus_${cyPos})"/>
+          <!-- อุโมงค์หนอนส่งข้อมูลแสง (Quantum Wormhole) -->
+          <ellipse cx="${cx}" cy="${cy}" rx="160" ry="55" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.3"/>
+          <ellipse cx="${cx}" cy="${cy}" rx="120" ry="40" fill="none" stroke="${color}" stroke-width="2" opacity="0.6"/>
+          <ellipse cx="${cx}" cy="${cy}" rx="80" ry="25" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+          <circle class="holo-glow" cx="${cx}" cy="${cy}" r="12" fill="#f59e0b"/>
+          <path d="M 100 cy-50 Q 300 cy-120 500 cy-50" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4 4"/>
+          <path d="M 100 cy+50 Q 300 cy+120 500 cy+50" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 4"/>
+
+          <text x="300" y="${cy+85}" fill="${color}" font-size="10" font-weight="bold" font-family="monospace" text-anchor="middle">QUANTUM WORMHOLE: M1 HYPERSPACE BUS</text>
+        `;
+      } else if (model === 'pio') {
+        return `
+          <defs><pattern id="gridHoloPio_${cyPos}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="${color}" stroke-opacity="0.05" stroke-width="0.8"/></pattern></defs>
+          <rect width="600" height="370" fill="url(#gridHoloPio_${cyPos})"/>
+          <!-- โครงข่ายซินแนปส์ไซเบอร์เนติกส์ -->
+          <circle cx="200" cy="${cy}" r="30" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981" stroke-width="2"/>
+          <circle cx="400" cy="${cy}" r="30" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8" stroke-width="2"/>
+          <path class="holo-glow" d="M 230 cy Q 300 cy-50 370 cy" fill="none" stroke="#f59e0b" stroke-width="3"/>
+          <path class="holo-glow" d="M 230 cy Q 300 cy+50 370 cy" fill="none" stroke="#f59e0b" stroke-width="3"/>
+          <circle class="holo-glow" cx="300" cy="${cy-22}" r="5" fill="#f59e0b"/>
+          <circle class="holo-glow" cx="300" cy="${cy+22}" r="5" fill="#f59e0b"/>
+
+          <text x="200" y="${cy+5}" fill="#10b981" font-size="9" font-weight="bold" font-family="monospace" text-anchor="middle">PIO PORT</text>
+          <text x="400" y="${cy+5}" fill="#38bdf8" font-size="9" font-weight="bold" font-family="monospace" text-anchor="middle">PERIPHERAL</text>
+          <text x="300" y="${cy+85}" fill="${color}" font-size="10" font-weight="bold" font-family="monospace" text-anchor="middle">CYBERNETIC SYNAPSES MATRIX: HANDSHAKE</text>
+        `;
+      } else if (model === 'ctc') {
+        return `
+          <defs><pattern id="gridHoloCtc_${cyPos}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="${color}" stroke-opacity="0.05" stroke-width="0.8"/></pattern></defs>
+          <rect width="600" height="370" fill="url(#gridHoloCtc_${cyPos})"/>
+          <!-- วงแหวนนาฬิกาควอนตัม -->
+          <circle cx="${cx}" cy="${cy}" rx="70" ry="70" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.4"/>
+          <circle cx="${cx}" cy="${cy}" rx="50" ry="50" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="6 3"/>
+          <circle cx="${cx}" cy="${cy}" rx="30" ry="30" fill="none" stroke="#38bdf8" stroke-width="2"/>
+          <circle class="holo-glow" cx="${cx}" cy="${cy}" r="10" fill="#f59e0b"/>
+          <line x1="${cx-85}" y1="${cy}" x2="${cx+85}" y2="${cy}" stroke="${color}" stroke-width="1" stroke-dasharray="2 2"/>
+
+          <text x="300" y="${cy+85}" fill="${color}" font-size="10" font-weight="bold" font-family="monospace" text-anchor="middle">CONCENTRIC QUANTUM CLOCK RINGS: CTC</text>
+        `;
+      } else if (model === 'mem') {
+        return `
+          <defs><pattern id="gridHoloMem_${cyPos}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="${color}" stroke-opacity="0.05" stroke-width="0.8"/></pattern></defs>
+          <rect width="600" height="370" fill="url(#gridHoloMem_${cyPos})"/>
+          <!-- ชั้นหน่วยความจำโฮโลแกรม 3 มิติ -->
+          <polygon points="180,${cy-45} 300,${cy-75} 420,${cy-45} 300,${cy-15}" fill="rgba(56, 189, 248, 0.12)" stroke="#38bdf8" stroke-width="2"/>
+          <polygon points="180,${cy+15} 300,${cy-15} 420,${cy+15} 300,${cy+45}" fill="rgba(16, 185, 129, 0.12)" stroke="#10b981" stroke-width="2"/>
+          
+          <line x1="210" y1="${cy-30}" x2="210" y2="${cy+30}" stroke="${color}" stroke-width="1.5" stroke-dasharray="2 2"/>
+          <line x1="390" y1="${cy-30}" x2="390" y2="${cy+30}" stroke="${color}" stroke-width="1.5" stroke-dasharray="2 2"/>
+
+          <text x="300" y="${cy-32}" fill="#38bdf8" font-size="9" font-weight="bold" font-family="monospace" text-anchor="middle">ROM LAYER (0000H)</text>
+          <text x="300" y="${cy+28}" fill="#10b981" font-size="9" font-weight="bold" font-family="monospace" text-anchor="middle">RAM LAYER (8000H)</text>
+          <text x="300" y="${cy+85}" fill="${color}" font-size="10" font-weight="bold" font-family="monospace" text-anchor="middle">3D HOLOGRAPHIC MEMORY STACK</text>
+        `;
+      } else {
+        return `
+          <defs><pattern id="gridHoloAsm_${cyPos}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="${color}" stroke-opacity="0.05" stroke-width="0.8"/></pattern></defs>
+          <rect width="600" height="370" fill="url(#gridHoloAsm_${cyPos})"/>
+          <!-- วงเวทย์ไซเบอร์แอสเซมบลี -->
+          <circle cx="${cx}" cy="${cy}" rx="75" ry="75" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.4"/>
+          <polygon points="${cx},${cy-75} ${cx+65},${cy+37} ${cx-65},${cy+37}" fill="none" stroke="#c084fc" stroke-width="2"/>
+          <circle class="holo-glow" cx="${cx}" cy="${cy}" r="12" fill="#c084fc"/>
+
+          <text x="300" y="${cy+85}" fill="${color}" font-size="10" font-weight="bold" font-family="monospace" text-anchor="middle">CYBERNETIC SPELLBOOK CIRCUIT CIRCLE: ASM</text>
+        `;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      switchModel('registers');
+    });
+  </script>
+</body>
+</html>
